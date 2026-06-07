@@ -1,0 +1,14 @@
+[package]
+name = "task_scheduler"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = { version = "0.8.9", features = ["form", "http1", "http2", "json", "macros", "matched-path", "multipart", "original-uri", "query", "tokio", "tower-log", "tracing", "ws"] }
+axum-governor = { version = "1.0.3", features = ["full"] }
+serde_json = "1.0.149"
+tokio = { version = "1.52.3", features = ["full"] }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "runtime-tokio-rustls","time"] }
+dotenv = "0.15.0"
+time = "0.3.47"
+
