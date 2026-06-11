@@ -3,15 +3,19 @@
 mod models;
 use axum::handler::Handler;
 use models::{*};
+use serde_json::Value::{self, Number};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool, Pool, Postgres};
 use dotenv::dotenv;
 use time::Date;
 use std::env;
 use crate::models::select_from_table;
+use crate::routes::{AppPool,};
 
 
 //for web
+mod routes;
+use routes::{user_,task_,get_users};
 use axum::{
     body::Body, debug_handler, extract::{ws::close_code::STATUS, Path, State}, http::{header::{self, COOKIE, SET_COOKIE}, HeaderMap, HeaderValue, Method, Response, StatusCode}, response::{self, IntoResponse, Json}, routing::{delete, get, post, put}, Router
 };
@@ -24,12 +28,8 @@ use reqwest;
 use tower_http::cors::{CorsLayer, AllowOrigin,Any};
 use serde::{Serialize, Deserialize};
 use futures::{StreamExt, TryStreamExt, io::Cursor};
+use time::OffsetDateTime;
 
-
-#[derive(Clone)]
-struct AppPool {
-    pool:Pool<Postgres>
-}
 
 #[tokio::main]
 async fn main() {
@@ -102,6 +102,11 @@ async fn main() {
     let app = Router::new()
 
     .route("/user", post(user_)).with_state(poolState.clone())
+    .route("/user", get(get_users)).with_state(poolState.clone())
+    
+    
+    .route("/task", post(task_)).with_state(poolState.clone())
+
     .layer(cors);
     // .layer(tower::ServiceBuilder::new()
     //         .layer(GovernorLayer::default()));
@@ -114,30 +119,3 @@ async fn main() {
 
 }
 
-
-//Route Functions
-
-async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
-    
-
-    let name = payload
-            .get("name")
-            .expect("name doesnt exist")
-            .as_str().unwrap();
-    
-    let email =payload
-            .get("email")
-            .expect("email doesnt exist")
-            .as_str().unwrap();
-        
-
-
-    create_user(
-        &poolState.pool,
-        name,
-        email
-        ).await.unwrap(); //<ra@gennew>0)
-    return StatusCode::ACCEPTED.into_response()
-
-
-}

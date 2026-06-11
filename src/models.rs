@@ -6,8 +6,9 @@ use sqlx::{Any, PgPool};
 #[derive(sqlx::FromRow,Debug)]
 pub struct Tasks{
     pub id:i32,
+    pub user_id:i32,
     pub task: String,
-    pub desciption:String,
+    pub description:String,
     pub due_date:Date,
     pub created_at:Date,
     pub updated_at:Date
