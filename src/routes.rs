@@ -6,7 +6,7 @@ use axum::{
 use serde_json::Value;
 use sqlx::Postgres;
 use core::panic;
-use std::{any::{type_name, type_name_of_val}, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, time::{Duration, SystemTime}};
+use std::{any::{type_name, type_name_of_val}, collections::HashMap, fmt::LowerHex, hash::{DefaultHasher, Hash, Hasher}, time::{Duration, SystemTime}};
 use axum_extra::extract::{cookie,CookieJar};
 use axum_governor::GovernorLayer;
 use ::cookie::{Cookie, Expiration, SameSite};
@@ -99,11 +99,60 @@ pub async fn task_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
 
 
 }
-pub async fn get_users(State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
+pub async fn get_users(headerMap:HeaderMap,State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
 
+    let jar = CookieJar::from_headers(&headerMap);
+    match jar.get("GID"){
+
+        Some(x)=>{x;},
+
+        _=>{return StatusCode::BAD_REQUEST.into_response();}
+    }
     
-
-
     return StatusCode::ACCEPTED.into_response()
 
 }
+
+
+
+pub async fn login(headerMap:HeaderMap,State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
+
+
+    get_user(
+        &poolState.pool,
+match payload.get("user_id")
+            {
+                Some(Value::Number(x))=>{x.as_i64().unwrap() as i32},
+                _=>{0}
+            }
+            
+            )
+                .await
+                .expect("Error getting user");
+
+
+            let mut newHeader = HeaderMap::new();
+            
+            let expires_in = Duration::from_secs(7 * 24 * 60 * 60);/// Days * Hours * Mins * Secs
+            let expires_at = SystemTime::now() + expires_in;
+            
+            let mut cookier = (Cookie::new("GID", "placeholder"));
+                cookier.set_expires(Expiration::DateTime(expires_at.into()));
+                cookier.set_secure(true);
+                cookier.set_same_site(SameSite::None);
+                cookier.set_path("/");
+            
+            newHeader.append(SET_COOKIE, cookier.to_string().parse().unwrap());
+
+            
+            let x = (StatusCode::ACCEPTED,newHeader).into_response();
+
+            
+
+            return x
+
+}
+
+
+
+

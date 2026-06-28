@@ -51,7 +51,7 @@ async fn main() {
         .max_connections(5)
         .connect(&database_url)
         .await
-        .expect("Failed to create pool.");
+        .expect("Failed to create pool.Check DB config");
 
     
 
