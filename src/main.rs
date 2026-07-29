@@ -15,7 +15,7 @@ use crate::routes::{AppPool,};
 
 //for web
 mod routes;
-use routes::{user_,task_,get_users};
+use routes::{*};
 use axum::{
     body::Body, debug_handler, extract::{ws::close_code::STATUS, Path, State}, http::{header::{self, COOKIE, SET_COOKIE}, HeaderMap, HeaderValue, Method, Response, StatusCode}, response::{self, IntoResponse, Json}, routing::{delete, get, post, put}, Router
 };
@@ -106,14 +106,16 @@ async fn main() {
     
     
     .route("/task", post(task_)).with_state(poolState.clone())
+    .route("/task", get(get_task)).with_state(poolState.clone())
 
     .layer(cors);
     // .layer(tower::ServiceBuilder::new()
     //         .layer(GovernorLayer::default()));
 
      let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
 
+    axum::serve(listener, app).await.unwrap();
+    
 
 
 

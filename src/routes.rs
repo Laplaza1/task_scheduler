@@ -49,7 +49,7 @@ pub async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
         email
         )
             .await
-            .unwrap(); //<ra@gennew>0)
+            .unwrap();
 
     return StatusCode::ACCEPTED.into_response()
 
@@ -58,6 +58,27 @@ pub async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
 
 
 
+pub async fn get_task(State(poolState): State<AppPool>,headers:HeaderMap)->Response<Body>{
+    
+
+    let user_id = CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned()).unwrap();
+    
+    
+
+
+
+     let task = grab_task(&poolState.pool, user_id.parse().unwrap()).await;
+
+    return StatusCode::ACCEPTED.into_response()
+
+
+
+
+
+
+
+
+}
 
 
 pub async fn task_(State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{

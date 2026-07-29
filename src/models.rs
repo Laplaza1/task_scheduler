@@ -203,3 +203,11 @@ pub async fn create_task(pool: &sqlx::PgPool,user_id: i32,task:String,descriptio
 
 
 }
+
+
+
+pub async fn grab_task(pool: &sqlx::PgPool,user_id: i32)-> Result<(),sqlx::Error>{
+    sqlx::query("select * tasks where user_id = (user_id) VALUES ($1) ").bind(user_id).fetch_all(pool);
+    Ok(())
+
+}
