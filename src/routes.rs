@@ -3,10 +3,10 @@
 use axum::{
     body::Body, debug_handler, extract::{ws::close_code::STATUS, Path, State}, http::{header::{self, COOKIE, SET_COOKIE}, HeaderMap, HeaderValue, Method, Response, StatusCode}, response::{self, IntoResponse, Json}, routing::{delete, get, post, put}, Router
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 use sqlx::Postgres;
 use core::panic;
-use std::{any::{type_name, type_name_of_val}, collections::HashMap, fmt::LowerHex, hash::{DefaultHasher, Hash, Hasher}, time::{Duration, SystemTime}};
+use std::{any::{type_name, type_name_of_val}, collections::HashMap, fmt::LowerHex, hash::{DefaultHasher, Hash, Hasher}, mem::take, println, time::{Duration, SystemTime}};
 use axum_extra::extract::{cookie,CookieJar};
 use axum_governor::GovernorLayer;
 use ::cookie::{Cookie, Expiration, SameSite};
@@ -58,18 +58,19 @@ pub async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
 
 
 
+
 pub async fn get_task(State(poolState): State<AppPool>,headers:HeaderMap)->Response<Body>{
     
 
-    let user_id = CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned()).unwrap();
+    let user_id = 1;//CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned()).unwrap();
     
     
 
 
 
-     let task = grab_task(&poolState.pool, user_id.parse().unwrap()).await;
-
-    return StatusCode::ACCEPTED.into_response()
+     let task = grab_task(&poolState.pool, user_id).await.ok().unwrap();
+    println!("{:?}",task);
+    return Json(json!({"tasks":task})).into_response()
 
 
 

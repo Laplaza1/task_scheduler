@@ -70,7 +70,7 @@ async fn main() {
 
 
     //Example of Creating a task
-    create_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::June, 30).ok().unwrap()).await.unwrap();
+    create_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await.unwrap();
 
     //Example of deleting a User
     //delete_user(&pool, 1).await.unwrap();

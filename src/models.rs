@@ -1,9 +1,12 @@
+use std::format;
+
+use serde::{Deserialize, Serialize};
 use time::Date;
-use sqlx::{Any, PgPool};
+use sqlx::{Any, PgPool, Value, postgres::PgRow};
 
 
 
-#[derive(sqlx::FromRow,Debug)]
+#[derive(sqlx::FromRow,Debug,Serialize,Deserialize)]
 pub struct Tasks{
     pub id:i32,
     pub user_id:i32,
@@ -81,8 +84,8 @@ pub async fn reset_users_table(pool: &PgPool){
             id              SERIAL PRIMARY KEY,
             name            TEXT NOT NULL,
             email           TEXT UNIQUE NOT NULL,
-            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at      DATE NOT NULL DEFAULT NOW(),
+            updated_at      DATE NOT NULL DEFAULT NOW()
         )
         "
     )
@@ -98,8 +101,8 @@ pub async fn reset_users_table(pool: &PgPool){
             task            TEXT NOT NULL,
             description      TEXT,
             due_date        DATE,
-            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            created_at      DATE NOT NULL DEFAULT NOW(),
+            updated_at      DATE NOT NULL DEFAULT NOW(),
             weight          INTEGER DEFAULT 100,
             CONSTRAINT valid_due_date
                 CHECK (due_date > created_at),
@@ -122,8 +125,8 @@ pub async fn reset_users_table(pool: &PgPool){
             task_id         INTEGER NOT NULL,
             date            DATE,
             completetor     TEXT NOT NULL,
-            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at      DATE NOT NULL DEFAULT NOW(),
+            updated_at      DATE NOT NULL DEFAULT NOW()
     )")
 
     .execute(pool)
@@ -206,8 +209,10 @@ pub async fn create_task(pool: &sqlx::PgPool,user_id: i32,task:String,descriptio
 
 
 
-pub async fn grab_task(pool: &sqlx::PgPool,user_id: i32)-> Result<(),sqlx::Error>{
-    sqlx::query("select * tasks where user_id = (user_id) VALUES ($1) ").bind(user_id).fetch_all(pool);
-    Ok(())
+pub async fn grab_task(pool: &sqlx::PgPool,user_id: i32)-> Result<Vec<Tasks>,sqlx::Error>{
+    let x:Vec<Tasks>= sqlx::query_as::<_,Tasks>("select * from tasks where user_id = $1").bind(user_id).fetch_all(pool).await.unwrap();
+    
+
+    return Ok(x)
 
 }

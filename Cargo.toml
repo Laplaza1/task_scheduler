@@ -10,11 +10,11 @@ serde_json = "1.0.149"
 tokio = { version = "1.52.3", features = ["full"] }
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "runtime-tokio-rustls","time"] }
 dotenv = "0.15.0"
-time = "0.3.47"
+time = {version = "0.3.47", features = ["serde"] }
 axum-extra = { version = "0.12.6", features = ["cookie", "cookie-private"] }
 tower = "0.5.3"
 futures = "0.3.32"
-serde = "1.0.228"
+serde = {version= "1.0.228",features=["derive"]}
 reqwest = {version = "0.13.4" , features = ["json"] }
 tower-http = { version = "0.6.11" , features = ["cors"] }
 cookie = "0.18.1"
