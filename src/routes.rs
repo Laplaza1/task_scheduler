@@ -3,7 +3,7 @@
 use axum::{
     body::Body, debug_handler, extract::{ws::close_code::STATUS, Path, State}, http::{header::{self, COOKIE, SET_COOKIE}, HeaderMap, HeaderValue, Method, Response, StatusCode}, response::{self, IntoResponse, Json}, routing::{delete, get, post, put}, Router
 };
-use serde_json::{Value, json};
+use serde_json::{Number, Value, json};
 use sqlx::Postgres;
 use core::panic;
 use std::{any::{type_name, type_name_of_val}, collections::HashMap, fmt::LowerHex, hash::{DefaultHasher, Hash, Hasher}, mem::take, println, time::{Duration, SystemTime}};
@@ -11,13 +11,13 @@ use axum_extra::extract::{cookie,CookieJar};
 use axum_governor::GovernorLayer;
 use ::cookie::{Cookie, Expiration, SameSite};
 use reqwest;
-use tower_http::cors::{CorsLayer, AllowOrigin,Any};
+use tower_http::{classify::GrpcCode::Ok, cors::{AllowOrigin, Any, CorsLayer}};
 use serde::{Serialize, Deserialize};
 use futures::{StreamExt, TryStreamExt, io::Cursor};
 use time::OffsetDateTime;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool, Pool};
-
+use log::{*};
 use crate::models::{*};
 
 
@@ -28,7 +28,7 @@ pub struct AppPool {
 
 
 
-pub async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
+pub async fn user_(State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
     
 
     let name = payload
@@ -44,12 +44,13 @@ pub async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
 
 
     create_user(
-        &poolState.pool,
-        name,
-        email
-        )
-            .await
-            .unwrap();
+            &pool_state.pool,
+            name,
+            email
+            )
+                .await
+                .ok();
+                    
 
     return StatusCode::ACCEPTED.into_response()
 
@@ -59,58 +60,129 @@ pub async fn user_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
 
 
 
-pub async fn get_task(State(poolState): State<AppPool>,headers:HeaderMap)->Response<Body>{
+pub async fn get_task(State(pool_state): State<AppPool>,headers:HeaderMap)->Response<Body>{
+
+    let user_id= match CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned())
+        {
+            Some(x)=>{x
+                                                .parse::<i32>()
+                                                .ok() 
+                                                .expect("error converting to i32")},
+            _ =>{
+                log::error!("User ID is incorrect");
+                return StatusCode::NOT_FOUND.into_response()
+                }
+
+        };
+
+    let task = match grab_task(&pool_state.pool, user_id).await.ok()
+                                   {
+                                    Some(x)=>{x},
+                                    _=>{
+                                        log::error!("Tasks failed to fetch!");
+                                        return StatusCode::NOT_FOUND.into_response()
+                                        }
+
+
+                                   };
     
-
-    let user_id = 1;//CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned()).unwrap();
-    
-    
-
-
-
-     let task = grab_task(&poolState.pool, user_id).await.ok().unwrap();
-    println!("{:?}",task);
     return Json(json!({"tasks":task})).into_response()
-
-
-
-
-
-
-
-
 }
 
 
-pub async fn task_(State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
+pub async fn task_(State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
     
 
-    let user_id = match payload.get("user_id").unwrap() {
-        Value::Number(x)=>{x.as_i64().unwrap() as i32},
+    let user_id = match payload.get("user_id") {
+        Some(Value::Number(x))=>{
+                                            match x.as_i64() 
+                                                {
+                                                    Some(x)=>{
+                                                                    x as i32
+                                                                  },
+                                                    _=>{
+                                                        log::error!("due date was incorrect!");
+                                                        return StatusCode::NOT_ACCEPTABLE.into_response()
+                                                        }
+                                                }
+                                        },
 
-        _=>{return StatusCode::NOT_ACCEPTABLE.into_response()}
-
-
+        _=>{
+            log::error!("User ID is incorrect!");
+            return StatusCode::NOT_ACCEPTABLE.into_response()
+            }
     };
     
-    let task = payload.get("task").unwrap();
-
-    let description = payload.get("description").unwrap();
-
-    let due_date = match payload.get("due_date") {
-
-        Some(Value::Array(x)) =>{x[0].as_number().unwrap().as_i128()},
-
-        Some(Value::Number(x)) =>{x.as_i128()},
-
-        _ =>{None}
-        
+    let task = match payload.get("task") {
+        Some(Value::String(x))=>{x},
+        _=>{
+            log::error!("due date data type was incorrect!");
+            return StatusCode::NOT_ACCEPTABLE.into_response()
+            }
     };
 
+    let description:&String = match payload.get("description"){
+        Some(Value::String(x))=>{x},
+        _=>{
+            log::error!("description data type was incorrect!");
+            return StatusCode::NOT_ACCEPTABLE.into_response()
+         }
+    };
+    let due_date:i128 = match payload.get("due_date") {
 
+        Some(Value::Array(x)) =>{
+                                            match x[0].as_number()
+                                                {
+                                                    Some(x)=>{
+                                                                                        match x.as_i128()   
+                                                                                        {
+                                                                                            Some(x)=>{x},
+                                                                                            _=>{
+                                                                                                log::error!("due date Vec inner data type was incorrect!");
+                                                                                                return StatusCode::NOT_ACCEPTABLE.into_response()
+                                                                                                }
+                                                                                        }
+                                                                                    },
+                                                    _=>{
+                                                        log::error!("due date data type was incorrect!");
+                                                        return StatusCode::NOT_ACCEPTABLE.into_response()
+                                                        }
+                                                }
+                                            },
 
-    create_task(&poolState.pool, user_id, task.to_string(), description.to_string(), OffsetDateTime::from_unix_timestamp_nanos(due_date.unwrap()).unwrap().date()).await;
-
+        Some(Value::Number(x)) =>{
+                                            match x.as_i128()
+                                                {   
+                                                    Some(x)=>{x},
+                                                    _=>{
+                                                        log::error!("due date data type was incorrect!");
+                                                        return StatusCode::NOT_ACCEPTABLE.into_response()
+                                                        }
+                                                }
+                                          },
+        _ =>{
+            log::error!("due date data type was an unexpected type!");
+            return StatusCode::NOT_ACCEPTABLE.into_response()
+            }
+    };
+    
+    let created_task = create_task(
+                                                        &pool_state.pool, 
+                                                        user_id, 
+                                                        task.to_string(), 
+                                                        description.to_string(), 
+                                            match OffsetDateTime::from_unix_timestamp_nanos(due_date).ok()
+                                                            {
+                                                                Some(x)=>{x.date()},
+                                                                _=>{
+                                                                    log::error!("offset date was incorrect!");
+                                                                    return StatusCode::NOT_ACCEPTABLE.into_response()
+                                                                }
+                                                            }
+                                                    ).await;
+    if created_task.is_ok() {
+        log::info!("Task {task} was created!");
+    }
     return StatusCode::ACCEPTED.into_response()
 
 
@@ -121,15 +193,18 @@ pub async fn task_(State(poolState): State<AppPool>,Json(payload): Json<serde_js
 
 
 }
-pub async fn get_users(headerMap:HeaderMap,State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
+pub async fn get_users(headerMap:HeaderMap,State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
 
     let jar = CookieJar::from_headers(&headerMap);
-    match jar.get("GID"){
+    let cookie = match jar.get("GID")
+            {
 
-        Some(x)=>{x;},
+                Some(x)=>{x},
 
-        _=>{return StatusCode::BAD_REQUEST.into_response();}
-    }
+                _=>{return StatusCode::BAD_REQUEST.into_response();}
+            };
+            
+
     
     return StatusCode::ACCEPTED.into_response()
 
@@ -137,23 +212,33 @@ pub async fn get_users(headerMap:HeaderMap,State(poolState): State<AppPool>,Json
 
 
 
-pub async fn login(headerMap:HeaderMap,State(poolState): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
+pub async fn login(headerMap:HeaderMap,State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
 
 
     get_user(
-        &poolState.pool,
+        &pool_state.pool,
 match payload.get("user_id")
             {
-                Some(Value::Number(x))=>{x.as_i64().unwrap() as i32},
+                Some(Value::Number(x))=>
+                    {
+                        match x.as_i64()
+                            {
+                            Some(x)=>{x as i32},
+                            _=>{
+                                log::error!("ID conversion to i32 failed! given var was {x}");
+                                return StatusCode::NOT_ACCEPTABLE.into_response()
+                            }
+                            }
+                    }
                 _=>{0}
+                    
             }
-            
             )
                 .await
                 .expect("Error getting user");
 
 
-            let mut newHeader = HeaderMap::new();
+            let mut new_header = HeaderMap::new();
             
             let expires_in = Duration::from_secs(7 * 24 * 60 * 60);/// Days * Hours * Mins * Secs
             let expires_at = SystemTime::now() + expires_in;
@@ -164,10 +249,18 @@ match payload.get("user_id")
                 cookier.set_same_site(SameSite::None);
                 cookier.set_path("/");
             
-            newHeader.append(SET_COOKIE, cookier.to_string().parse().unwrap());
+            new_header.append(SET_COOKIE, match cookier.to_string().parse::<HeaderValue>().ok(){
+                                                                                   Some(x)=>{x},
+                                                                                    _=>{
+                                                                                        log::error!("cookie failed to parse!");
+                                                                                        return StatusCode::NOT_ACCEPTABLE.into_response()
+                                                                                        }
+                                                                                      
+                                                                                      
+                                                                                      });
 
             
-            let x = (StatusCode::ACCEPTED,newHeader).into_response();
+            let x = (StatusCode::ACCEPTED,new_header).into_response();
 
             
 
