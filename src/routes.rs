@@ -19,7 +19,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, PgPool, Pool};
 use log::{*};
 use crate::models::{*};
-
+use simple_logging::log_to_file;
 
 #[derive(Clone)]
 pub struct AppPool {
@@ -61,6 +61,9 @@ pub async fn user_(State(pool_state): State<AppPool>,Json(payload): Json<serde_j
 
 
 pub async fn get_task(State(pool_state): State<AppPool>,headers:HeaderMap)->Response<Body>{
+
+
+    let _ = log_to_file("app.log", log::LevelFilter::Info); 
 
     let user_id= match CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned())
         {

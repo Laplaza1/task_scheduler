@@ -29,6 +29,8 @@ use tower_http::cors::{CorsLayer, AllowOrigin,Any};
 use serde::{Serialize, Deserialize};
 use futures::{StreamExt, TryStreamExt, io::Cursor};
 use time::OffsetDateTime;
+use simple_logging::log_to_file;
+use log::{*};
 
 
 #[tokio::main]
@@ -36,7 +38,8 @@ async fn main() {
 
 
 
-
+    simple_logging::log_to_file("app.log", LevelFilter::Info).unwrap();
+    info!("Application Starting up ");
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
@@ -44,21 +47,28 @@ async fn main() {
     //DB Example Setup
     println!("{:?}",dotenv().ok());
     
+
+    info!("DB Connection Starting up ");
     let database_url = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
 
-    let pool = PgPoolOptions::new()
+    let pool = match PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
         .await
-        .expect("Failed to create pool.Check DB config");
+        {
+            Ok(x)=>{x}
+            Err(e)=>{error!("{e} occured please verify Postgres connection");panic!("{e}")}
+
+        };
+        //.expect("Failed to create pool.Check DB config");
 
     
-
+    
     //Example of resetting 
     reset_users_table(&pool).await;
-
-
+    info!("DB connection established!");
+    info!("Starting Tests & Examples");
     //Example of Creating users
     create_user(&pool, "John Doe", "john@example.com").await.unwrap();
 
@@ -74,7 +84,7 @@ async fn main() {
 
     //Example of deleting a User
     //delete_user(&pool, 1).await.unwrap();
-
+    info!("Finished Tests & Examples");
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -89,7 +99,7 @@ async fn main() {
     ];
 
     
-    let poolState = AppPool{pool:pool};
+    let pool_state = AppPool{pool:pool};
     
     //let allowed_origins:[tower_http::cors::AllowOrigin;2] = ["http://localhost".parse().unwrap(),"http://127.0.0.1:5500".parse().unwrap()];
     let cors = CorsLayer::new()
@@ -101,12 +111,12 @@ async fn main() {
     
     let app = Router::new()
 
-    .route("/user", post(user_)).with_state(poolState.clone())
-    .route("/user", get(get_users)).with_state(poolState.clone())
+    .route("/user", post(user_)).with_state(pool_state.clone())
+    .route("/user", get(get_users)).with_state(pool_state.clone())
     
     
-    .route("/task", post(task_)).with_state(poolState.clone())
-    .route("/task", get(get_task)).with_state(poolState.clone())
+    .route("/task", post(task_)).with_state(pool_state.clone())
+    .route("/task", get(get_task)).with_state(pool_state.clone())
 
     .layer(cors);
     // .layer(tower::ServiceBuilder::new()

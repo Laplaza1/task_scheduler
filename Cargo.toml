@@ -19,4 +19,5 @@ reqwest = {version = "0.13.4" , features = ["json"] }
 tower-http = { version = "0.6.11" , features = ["cors"] }
 cookie = "0.18.1"
 log = "0.4.33"
+simple-logging = "2.0.2"
 
