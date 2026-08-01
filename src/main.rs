@@ -1,11 +1,8 @@
 
 //for DB
 mod models;
-use axum::handler::Handler;
 use models::{*};
-use serde_json::Value::{self, Number};
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Executor, PgPool, Pool, Postgres};
 use dotenv::dotenv;
 use time::Date;
 use std::env;
@@ -17,19 +14,11 @@ use crate::routes::{AppPool,};
 mod routes;
 use routes::{*};
 use axum::{
-    body::Body, debug_handler, extract::{ws::close_code::STATUS, Path, State}, http::{header::{self, COOKIE, SET_COOKIE}, HeaderMap, HeaderValue, Method, Response, StatusCode}, response::{self, IntoResponse, Json}, routing::{delete, get, post, put}, Router
+    http::{HeaderValue, Method},routing::{delete, get, post, put}, Router
 };
 use core::panic;
-use std::{any::{type_name, type_name_of_val}, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, time::{Duration, SystemTime}};
-use axum_extra::extract::{cookie,CookieJar};
-use axum_governor::GovernorLayer;
-use ::cookie::{Cookie, Expiration, SameSite};
-use reqwest;
-use tower_http::cors::{CorsLayer, AllowOrigin,Any};
-use serde::{Serialize, Deserialize};
-use futures::{StreamExt, TryStreamExt, io::Cursor};
-use time::OffsetDateTime;
-use simple_logging::log_to_file;
+use tower_http::cors::{CorsLayer, AllowOrigin};
+
 use log::{*};
 
 
@@ -72,7 +61,7 @@ async fn main() {
     //Example of Creating users
     create_user(&pool, "John Doe", "john@example.com").await.unwrap();
 
-    let user = get_user(&pool, 1).await.unwrap();
+    let _user = get_user(&pool, 1).await.unwrap();
     println!("User: {:?}", select_from_table(&pool, models::Tables::User, 1).await.unwrap());
 
     //Example of updating an Email

@@ -2,7 +2,7 @@ use std::format;
 
 use serde::{Deserialize, Serialize};
 use time::Date;
-use sqlx::{Any, PgPool, Value, postgres::PgRow};
+use sqlx::{PgPool};
 
 
 
@@ -34,7 +34,7 @@ pub struct CompletedTasks{
 
 
 
-#[derive(sqlx::FromRow,Debug)]
+#[derive(sqlx::FromRow)]
 pub struct User {
     pub id: i32,
     pub name: String,
