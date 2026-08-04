@@ -13,9 +13,10 @@ use ::cookie::{Cookie, Expiration, SameSite};
 
 
 
-
+use axum::http::Uri;
 use time::OffsetDateTime;
-
+use crate::LimitState;
+use axum_limit::Quota;
 use sqlx::{Pool};
 use log::{*};
 use crate::models::{*};
@@ -23,7 +24,9 @@ use simple_logging::log_to_file;
 
 #[derive(Clone)]
 pub struct AppPool {
-    pub(crate) pool:Pool<Postgres>
+    pub(crate) pool:Pool<Postgres>,
+    pub(crate) limits: LimitState<Uri>,
+    pub(crate) api_quota: Quota,
 }
 
 
@@ -273,4 +276,12 @@ match payload.get("user_id")
 
 
 
+pub async  fn delete_task_(State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>
+    {
 
+
+
+
+
+        StatusCode::ACCEPTED.into_response()
+    }

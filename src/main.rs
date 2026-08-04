@@ -1,24 +1,25 @@
 
 //for DB
 mod models;
+use axum_governor::GovernorLayer;
 use models::{*};
 use sqlx::postgres::PgPoolOptions;
 use dotenv::dotenv;
-use time::Date;
 use std::env;
-use crate::models::select_from_table;
 use crate::routes::{AppPool,};
-
+use crate::tests::postgres_init_test;
+use axum_limit::{Limit, LimitState, LimitPerSecond};
 
 //for web
 mod routes;
 use routes::{*};
 use axum::{
-    http::{HeaderValue, Method},routing::{delete, get, post, put}, Router
+    http::{HeaderValue, Method,Uri},routing::{delete, get, post, put}, Router
 };
 use core::panic;
 use tower_http::cors::{CorsLayer, AllowOrigin};
-
+use axum_limit::Quota;
+mod tests;
 use log::{*};
 
 
@@ -27,7 +28,7 @@ async fn main() {
 
 
 
-    simple_logging::log_to_file("app.log", LevelFilter::Info).unwrap();
+    simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
     info!("Application Starting up ");
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,21 +59,10 @@ async fn main() {
     reset_users_table(&pool).await;
     info!("DB connection established!");
     info!("Starting Tests & Examples");
-    //Example of Creating users
-    create_user(&pool, "John Doe", "john@example.com").await.unwrap();
-
-    let _user = get_user(&pool, 1).await.unwrap();
-    println!("User: {:?}", select_from_table(&pool, models::Tables::User, 1).await.unwrap());
-
-    //Example of updating an Email
-    update_user_email(&pool, 1, "john.doe@example.com").await.unwrap();
+    
+    postgres_init_test(&pool).await;
 
 
-    //Example of Creating a task
-    create_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await.unwrap();
-
-    //Example of deleting a User
-    //delete_user(&pool, 1).await.unwrap();
     info!("Finished Tests & Examples");
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,8 +78,15 @@ async fn main() {
     ];
 
     
-    let pool_state = AppPool{pool:pool};
+    let pool_state = AppPool
+                                    {
+                                        pool:pool,
+                                        limits:LimitState::<Uri>::default(),
+                                        api_quota:Quota::per_second(100)
+                                    };
     
+    
+
     //let allowed_origins:[tower_http::cors::AllowOrigin;2] = ["http://localhost".parse().unwrap(),"http://127.0.0.1:5500".parse().unwrap()];
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST,Method::PUT,Method::DELETE]) // Allow GET and POST
@@ -102,14 +99,14 @@ async fn main() {
 
     .route("/user", post(user_)).with_state(pool_state.clone())
     .route("/user", get(get_users)).with_state(pool_state.clone())
-    
-    
     .route("/task", post(task_)).with_state(pool_state.clone())
     .route("/task", get(get_task)).with_state(pool_state.clone())
+    .route("/task/del", post(delete_task_)).with_state(pool_state.clone())
 
-    .layer(cors);
-    // .layer(tower::ServiceBuilder::new()
-    //         .layer(GovernorLayer::default()));
+
+    .layer(cors)
+    .layer(tower::ServiceBuilder::new()
+    .layer(GovernorLayer::default()));
 
      let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
