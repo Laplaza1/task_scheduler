@@ -34,15 +34,19 @@ pub struct AppPool {
 pub async fn user_(State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
     
 
-    let name = payload
+    let name = match payload
             .get("name")
-            .expect("name doesnt exist")
-            .as_str().unwrap();
+            {
+                Some(Value::String(x))=>{x},
+                _=>{error!("User ID  Data type is incorrect");return StatusCode::BAD_REQUEST.into_response()}
+            };
     
-    let email =payload
+    let email =match payload
             .get("email")
-            .expect("email doesnt exist")
-            .as_str().unwrap();
+            {
+                Some(Value::String(x))=>{x},
+                _=>{error!("Email data type is incorrect");return StatusCode::BAD_REQUEST.into_response()}
+            };
         
 
 
@@ -70,10 +74,16 @@ pub async fn get_task(State(pool_state): State<AppPool>,headers:HeaderMap)->Resp
 
     let user_id= match CookieJar::from_headers(&headers).get("user_id").map(|cookie| cookie.value().to_owned())
         {
-            Some(x)=>{x
-                                                .parse::<i32>()
-                                                .ok() 
-                                                .expect("error converting to i32")},
+            Some(x)=>{ match x.parse::<i32>()
+                                {
+                                    Ok(converted_x)=>{converted_x},
+                                    _=>{
+                                        log::error!("Couldn't convert {x} into i32");
+                                        return StatusCode::BAD_REQUEST.into_response()
+                                        }
+
+                                }
+                             },
             _ =>{
                 log::error!("User ID is incorrect");
                 return StatusCode::NOT_FOUND.into_response()

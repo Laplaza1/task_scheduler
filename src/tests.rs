@@ -1,4 +1,4 @@
-use std::panic;
+use std::{fmt::format, net::TcpStream, panic, time::Duration};
 
 use axum::Error;
 use sqlx::{PgPool, Postgres};
@@ -67,25 +67,25 @@ pub async fn postgres_init_test(pool: &PgPool)
             //Example of Creating a task
             match create_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await
                 {
-                    Ok(_)=>{info!("Test user updated successfully");},
+                    Ok(_)=>{info!("Test task created successfully");},
                     Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
 
                 };
+            match delete_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await
+                            {
+                                Ok(_)=>{info!("Test take deleted successfully");},
+                                Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
 
+                            };
+            
             //Example of deleting a User
             match delete_user(&pool, 1).await
             {
-                Ok(_)=>{info!("Test user updated successfully");},
+                Ok(_)=>{info!("Test user deleted successfully");},
                 Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
 
             };
 
-            match delete_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await
-                {
-                    Ok(_)=>{info!("Test user updated successfully");},
-                    Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
-
-                };
             
 
 
@@ -93,3 +93,32 @@ pub async fn postgres_init_test(pool: &PgPool)
 
 
     }
+    // port checker
+
+///Port Checking function
+/// 
+/// Goal is to verify open ports and handle unexpected open ports
+/// 
+pub async fn port_checker(start:u32,stop:u32)->Result<String,Error> {
+
+            let mut open_ports =1 as u32;
+            for i in start..stop
+                {
+                    let host = match env::var("HOST")
+                        {
+                            Ok(x)=>{x},
+                            Err(error)=>{warn!("{error} appeared while trying to find host. Please verify");error.to_string()}
+
+
+                        };
+                    let address = format!("{:?}:{}",host,i); 
+                    let timeout = Duration::from_secs(9);
+                    match TcpStream::connect_timeout(&address.parse().unwrap(), timeout) 
+                        {
+                            Ok(_) => {open_ports+=1;info!("Port {i} is open!")},
+                            Err(error) => {warn!("Port {i} is Closed! by {error}")},
+                        }
+                    
+                }
+            Ok(format!("Port Check concluded there are {} open ports",open_ports).to_string())
+}

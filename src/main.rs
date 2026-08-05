@@ -7,7 +7,7 @@ use sqlx::postgres::PgPoolOptions;
 use dotenv::dotenv;
 use std::env;
 use crate::routes::{AppPool,};
-use crate::tests::postgres_init_test;
+use crate::tests::{port_checker, postgres_init_test};
 use axum_limit::{Limit, LimitState, LimitPerSecond};
 
 //for web
@@ -27,20 +27,25 @@ use log::{*};
 async fn main() {
 
 
-
+println!("{:?}",dotenv().ok());
     simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
     info!("Application Starting up ");
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
+
+
     
     //DB Example Setup
-    println!("{:?}",dotenv().ok());
+    
     
 
     info!("DB Connection Starting up ");
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = match env::var("DATABASE_URL")
+        {
+            Ok(x)=>{x},
+            Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+        };
 
     let pool = match PgPoolOptions::new()
         .max_connections(5)
@@ -48,10 +53,10 @@ async fn main() {
         .await
         {
             Ok(x)=>{x}
-            Err(e)=>{error!("{e} occured please verify Postgres connection");panic!("{e}")}
+            Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
 
         };
-        //.expect("Failed to create pool.Check DB config");
+        
 
     
     
@@ -108,7 +113,11 @@ async fn main() {
     .layer(tower::ServiceBuilder::new()
     .layer(GovernorLayer::default()));
 
-     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+     let listener = match tokio::net::TcpListener::bind("0.0.0.0:3000").await   
+                            {
+                                Ok(x)=>{x},
+                                Err(error)=>{error!("{error} @ listener function please check");panic!("{error}")}
+                            };
 
     axum::serve(listener, app).await.unwrap();
     

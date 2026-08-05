@@ -224,7 +224,11 @@ pub async fn delete_task(pool: &sqlx::PgPool,user_id: i32,task:String,descriptio
     verify_normal_chars(&task);
     verify_normal_chars(&description);
 
-    sqlx::query("DELETE FROM tasks WHERE (user_id,task,description,due_date) IN ($1, $2, $3,$4) ")
+    sqlx::query("DELETE FROM tasks
+WHERE user_id = $1
+  AND task = $2
+  AND description = $3
+  AND due_date = $4;")
     .bind(user_id)
     .bind(task)
     .bind(description)
