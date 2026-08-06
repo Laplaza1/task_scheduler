@@ -1,4 +1,4 @@
-use std::{fmt::format, net::TcpStream, panic, time::Duration};
+use std::{fmt::format, net::TcpStream, panic, process::ExitCode, time::Duration};
 
 use axum::Error;
 use sqlx::{PgPool, Postgres};
@@ -17,7 +17,7 @@ use std::env;
 /// converts x into Chars which are checked for invalid characters
 /// '''
 /// 
-pub fn verify_normal_chars(x:&String)
+pub async fn verify_normal_chars(x:&String)
     
 
     {
@@ -33,33 +33,34 @@ pub fn verify_normal_chars(x:&String)
 
 pub async fn postgres_init_test(pool: &PgPool)
     {
+            info!("Init postgres test");
             simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
             //Example of Creating users
-            match create_user(&pool, "John Doe", "john@example.com").await  
+            let _create_user = match create_user(&pool, "John Doe", "john@example.com").await  
                 {
 
                     Ok(_)=>{info!("Created test user sucessfully")},
-                    Err(error)=>{error!("{error} occured please verify Postgres connection")}
+                    Err(error)=>{error!("{error} occured @ create_user please verify Postgres connection")}
 
                 };
 
             let _user = match get_user(&pool, 1).await 
                 {
                     Ok(x)=>{info!("Test user retreived successfully");x},
-                    Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+                    Err(error)=>{error!("{error} occured @ get_user please verify Postgres connection");std::process::exit(1)}
 
                 };
             let select_from_table = match select_from_table(&pool, Tables::User, 1).await 
                 {
                     Ok(x)=>{x},
-                    Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+                    Err(error)=>{error!("{error} occured @select_from_table please verify Postgres connection");std::process::exit(1)}
                  };
-            println!("User: {:?}",select_from_table);
+            
             //Example of updating an Email
             match update_user_email(&pool, 1, "john.doe@example.com").await
                 {
                     Ok(_)=>{info!("Test user updated successfully");},
-                    Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+                    Err(error)=>{error!("{error} occured @ update_user_email please verify Postgres connection");std::process::exit(1)}
 
                 };
 
@@ -68,13 +69,13 @@ pub async fn postgres_init_test(pool: &PgPool)
             match create_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await
                 {
                     Ok(_)=>{info!("Test task created successfully");},
-                    Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+                    Err(error)=>{error!("{error} occured @ create_task please verify Postgres connection");std::process::exit(1)}
 
                 };
             match delete_task(&pool, 1, "Make Tacos".to_owned(), "Cook shells and meat and combine with cheese".to_owned(), Date::from_calendar_date(2026, time::Month::August, 30).ok().unwrap()).await
                             {
                                 Ok(_)=>{info!("Test take deleted successfully");},
-                                Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+                                Err(error)=>{error!("{error} occured @ delete_task please verify Postgres connection");std::process::exit(1)}
 
                             };
             
@@ -82,7 +83,7 @@ pub async fn postgres_init_test(pool: &PgPool)
             match delete_user(&pool, 1).await
             {
                 Ok(_)=>{info!("Test user deleted successfully");},
-                Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+                Err(error)=>{error!("{error} occured @ delete_user please verify Postgres connection");std::process::exit(1)}
 
             };
 
@@ -122,3 +123,19 @@ pub async fn port_checker(start:u32,stop:u32)->Result<String,Error> {
                 }
             Ok(format!("Port Check concluded there are {} open ports",open_ports).to_string())
 }
+
+
+pub async fn init(pool: &PgPool) -> Result<(), sqlx::Error> {
+    // Step 1: Reset users table
+    reset_users_table(pool).await;
+
+    // Step 2: Log after reset is done
+    info!("DB connection established!");
+    info!("Starting Tests & Examples");
+
+    // Step 3: Run tests/examples
+    postgres_init_test(pool).await;
+
+    Ok(())
+}
+

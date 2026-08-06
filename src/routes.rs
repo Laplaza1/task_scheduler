@@ -15,12 +15,17 @@ use ::cookie::{Cookie, Expiration, SameSite};
 
 use axum::http::Uri;
 use time::OffsetDateTime;
-use crate::LimitState;
+use crate::{Auth::*, LimitState};
 use axum_limit::Quota;
 use sqlx::{Pool};
 use log::{*};
 use crate::models::{*};
 use simple_logging::log_to_file;
+
+
+
+
+
 
 #[derive(Clone)]
 pub struct AppPool {
@@ -231,7 +236,7 @@ pub async fn get_users(header_map:HeaderMap,State(pool_state): State<AppPool>,Js
 pub async fn login(header_map:HeaderMap,State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
 
 
-    get_user(
+    let x = get_user(
         &pool_state.pool,
 match payload.get("user_id")
             {
@@ -258,7 +263,7 @@ match payload.get("user_id")
             
             let expires_in = Duration::from_secs(7 * 24 * 60 * 60);// Days * Hours * Mins * Secs
             let expires_at = SystemTime::now() + expires_in;
-            
+            create_token(x.id);
             let mut cookier = (Cookie::new("GID", "placeholder"));
                 cookier.set_expires(Expiration::DateTime(expires_at.into()));
                 cookier.set_secure(true);

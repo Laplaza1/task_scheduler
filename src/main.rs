@@ -21,14 +21,21 @@ use tower_http::cors::{CorsLayer, AllowOrigin};
 use axum_limit::Quota;
 mod tests;
 use log::{*};
-
+mod Auth;
+use Auth::*;
 
 #[tokio::main]
 async fn main() {
 
 
 println!("{:?}",dotenv().ok());
-    simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
+    match simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info)
+    {
+        Ok(_)=>{info!("Log successfully set up")},
+        Err(error)=>{error!("{error}")}
+
+
+    };
     info!("Application Starting up ");
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,7 +51,7 @@ println!("{:?}",dotenv().ok());
     let database_url = match env::var("DATABASE_URL")
         {
             Ok(x)=>{x},
-            Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+            Err(error)=>{error!("{error} occured finding DB_URL please verify Postgres connection");std::process::exit(1)}
         };
 
     let pool = match PgPoolOptions::new()
@@ -53,7 +60,7 @@ println!("{:?}",dotenv().ok());
         .await
         {
             Ok(x)=>{x}
-            Err(error)=>{error!("{error} occured please verify Postgres connection");panic!("{error}")}
+            Err(error)=>{error!("{error} occured Setting pool please verify Postgres connection");std::process::exit(1)}
 
         };
         
@@ -61,7 +68,7 @@ println!("{:?}",dotenv().ok());
     
     
     //Example of resetting 
-    reset_users_table(&pool).await;
+    (reset_users_table(&pool).await);
     info!("DB connection established!");
     info!("Starting Tests & Examples");
     
@@ -73,7 +80,7 @@ println!("{:?}",dotenv().ok());
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
+    
     //Web setup
     let origins = vec![
         HeaderValue::from_static("http://localhost:3000"),
@@ -92,7 +99,7 @@ println!("{:?}",dotenv().ok());
     
     
 
-    //let allowed_origins:[tower_http::cors::AllowOrigin;2] = ["http://localhost".parse().unwrap(),"http://127.0.0.1:5500".parse().unwrap()];
+    
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST,Method::PUT,Method::DELETE]) // Allow GET and POST
         .allow_origin(AllowOrigin::list(origins))

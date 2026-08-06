@@ -22,5 +22,6 @@ log = "0.4.33"
 simple-logging = "2.0.2"
 axum-limit = "0.1.0"
 tower_governor = "0.8.0"
+jsonwebtoken = "11.0.0"
 
 

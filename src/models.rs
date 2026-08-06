@@ -1,9 +1,9 @@
-use std::format;
+use std::{env, format, fs, path::PathBuf, println};
 
-use log::{error, info};
+use log::{LevelFilter, error, info, warn};
 use serde::{Deserialize, Serialize};
 use time::Date;
-use sqlx::{PgPool};
+use sqlx::{query_file, query_file_as, PgPool};
 use crate::tests::{self, verify_normal_chars};
 
 
@@ -35,10 +35,10 @@ pub struct CompletedTasks{
 
 
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow,Debug)]
 pub struct User {
     pub id: i32,
-    pub name: String,
+    pub _name: String,
     pub email: String,
 }
 
@@ -53,7 +53,7 @@ pub enum Tables {
 }
 
 impl Tables {
-    pub fn name(&self)->&'static str{
+    pub fn _name(&self)->&'static str{
         match self {
             Tables::CompletedTasks=>"completed_tasks",
             Tables::Tasks=>"tasks",
@@ -65,8 +65,9 @@ impl Tables {
 
 
 pub async fn reset_users_table(pool: &PgPool){
+    simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
     // Drop the table if it exists
-
+    info!("Starting reseting user table");
     
     let _ = sqlx::query("DROP TABLE IF EXISTS users CASCADE;")
         .execute(pool)
@@ -84,75 +85,88 @@ pub async fn reset_users_table(pool: &PgPool){
         .await;
     info!("Completed Tasks sucessfully dropped");
 
+    let directory_path = match env::current_dir()
+                        {
+                            Ok(y)=>
+                                {
+                                  y
+                                    
+                                        
+                                },
+                            _=>{std::process::exit(1)}
 
-    // Now create it with the correct schema
-    let init_user_table = sqlx::query(
-        "
-        CREATE TABLE users (
-            id              SERIAL PRIMARY KEY,
-            name            TEXT NOT NULL,
-            email           TEXT UNIQUE NOT NULL,
-            created_at      DATE NOT NULL DEFAULT NOW(),
-            updated_at      DATE NOT NULL DEFAULT NOW()
-        )
-        "
-    )
+                        };
+    
+    
+    let  init_users_path =  directory_path.clone().join(r"sql\init_users_table.sql");
+    info!("{:?}",init_users_path);
+    let init_users_str = &fs::read_to_string(&init_users_path);
+    let init_users_str = match init_users_str 
+        {
+            Ok(x)=>{x},
+            _=>{error!("Couldn't read init_users_sql item");std::process::exit(1)}
+
+        };
+    
+                                            
+    
+    
+    let init_tasks_path =  directory_path.clone().join(r"sql\init_tasks_table.sql");
+    let init_tasks_str = &fs::read_to_string(&init_tasks_path);
+     let init_tasks_str = match init_tasks_str 
+        {
+            Ok(x)=>{x},
+            _=>{error!("Couldn't read init_users_sql item");std::process::exit(1)}
+
+        };                                    
+
+    
+    let init_completed_tasks_path =  directory_path.clone().join(r"sql\init_completed_table.sql");
+    let init_completed_tasks_str = &fs::read_to_string(&init_completed_tasks_path);
+    let init_completed_tasks_str = match init_completed_tasks_str 
+        {
+            Ok(x)=>{x},
+            _=>{error!("Couldn't read init_users_sql item");std::process::exit(1)}
+
+        };
+    
+
+    info!("Creating Users table");
+    let init_users_table= sqlx::query(&init_users_str)
     .execute(pool)
     .await;
     
 
-    let init_task_table = sqlx::query(
-        "
-        CREATE TABLE tasks (
-            id              SERIAL PRIMARY KEY,
-            user_id        INTEGER NOT NULL,
-            task            TEXT NOT NULL,
-            description      TEXT,
-            due_date        DATE,
-            created_at      DATE NOT NULL DEFAULT NOW(),
-            updated_at      DATE NOT NULL DEFAULT NOW(),
-            weight          INTEGER DEFAULT 100,
-            CONSTRAINT valid_due_date
-                CHECK (due_date > created_at),
-
-            CONSTRAINT valid_user_id
-                FOREIGN KEY (user_id)
-                REFERENCES users(id)
-
-        )"
-    )
-    .execute(pool)
-    .await;
-
     
-
+    
+    info!("Creating completed_tasks table");
     let init_completed_tasks_table = sqlx::query(
-        "
-        CREATE TABLE completed_tasks (
-            id              SERIAL PRIMARY KEY,
-            task_id         INTEGER NOT NULL,
-            date            DATE,
-            completetor     TEXT NOT NULL,
-            created_at      DATE NOT NULL DEFAULT NOW(),
-            updated_at      DATE NOT NULL DEFAULT NOW()
-    )")
+        init_completed_tasks_str)
 
+    .execute(pool)
+    .await;
+    
+
+    info!("Creating task table");
+    let init_task_table = sqlx::query(
+        init_tasks_str
+    )
     .execute(pool)
     .await;
 
 
-   info!(" Tables created Users:{} Task: {} Completed Task: {}",init_user_table.is_ok(),init_task_table.is_ok(),init_completed_tasks_table.is_ok())
+   info!(" Tables created Users:{} Task: {} Completed Task: {}",init_users_table.is_ok(),init_task_table.is_ok(),init_completed_tasks_table.is_ok())
 
 }
 
 
-pub async fn create_user(pool: &sqlx::PgPool, name: &str, email: &str) -> Result<(), sqlx::Error> {
-    verify_normal_chars(&name.to_string());
-    sqlx::query("INSERT INTO users (name, email) VALUES ($1, $2)")
-        .bind(name)
+pub async fn create_user(pool: &sqlx::PgPool, _name: &str, email: &str) -> Result<(), sqlx::Error> {
+    verify_normal_chars(&_name.to_string()).await;
+    let _= sqlx::query("INSERT INTO users (_name, email) VALUES ($1, $2)")
+        .bind(_name)
         .bind(email)
         .execute(pool)
-        .await?;
+        .await;
     Ok(())
 }
 
@@ -164,7 +178,7 @@ pub async fn select_from_table(
 ) -> Result<Vec<sqlx::postgres::PgRow>, sqlx::Error> {
     let query = format!(
         "SELECT * FROM {} LIMIT $1",
-        table.name()   // Safe because it's from a controlled enum
+        table._name()   // Safe because it's from a controlled enum
     );
 
     sqlx::query(&query)
@@ -204,8 +218,8 @@ pub async fn delete_user(pool: &sqlx::PgPool, user_id: i32) -> Result<(), sqlx::
 
 pub async fn create_task(pool: &sqlx::PgPool,user_id: i32,task:String,description:String,due_date:Date)-> Result<(),sqlx::Error>{
 
-    verify_normal_chars(&task);
-    verify_normal_chars(&description);
+    verify_normal_chars(&task).await;
+    verify_normal_chars(&description).await;
 
     sqlx::query("INSERT INTO tasks (user_id,task,description,due_date) VALUES ($1, $2, $3,$4) ")
     .bind(user_id)
@@ -221,8 +235,8 @@ pub async fn create_task(pool: &sqlx::PgPool,user_id: i32,task:String,descriptio
 
 pub async fn delete_task(pool: &sqlx::PgPool,user_id: i32,task:String,description:String,due_date:Date)-> Result<(),sqlx::Error>{
 
-    verify_normal_chars(&task);
-    verify_normal_chars(&description);
+    verify_normal_chars(&task).await;
+    verify_normal_chars(&description).await;
 
     sqlx::query("DELETE FROM tasks
 WHERE user_id = $1
@@ -242,7 +256,8 @@ WHERE user_id = $1
 
 
 pub async fn grab_task(pool: &sqlx::PgPool,user_id: i32)-> Result<Vec<Tasks>,sqlx::Error>{
-    let x:Vec<Tasks>= sqlx::query_as::<_,Tasks>("select * from tasks where user_id = $1").bind(user_id).fetch_all(pool).await.unwrap();
+    let x:Vec<Tasks>= sqlx::query_as::<_,Tasks>("select * from tasks where user_id = $1").bind(user_id).fetch_all(pool).await?;
+        
     
 
     return Ok(x)
