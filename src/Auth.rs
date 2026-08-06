@@ -51,7 +51,7 @@ pub fn verify_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> 
     Ok(token_data.claims)
 }
 
-// ---------- Axum Extractor ----------
+
 pub struct AuthUser(pub Claims);
 
 
