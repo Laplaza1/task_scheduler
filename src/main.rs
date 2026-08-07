@@ -44,7 +44,7 @@ println!("{:?}",dotenv().ok());
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-
+    
 
     
     //DB Example Setup
@@ -72,6 +72,11 @@ println!("{:?}",dotenv().ok());
     
     
     //Example of resetting 
+    let development_server = match env::var("InDevelopment")
+        {
+            Ok(x)=>{x},
+            Err(error)=>{error!("{error} occured finding InDevelopment please verify env vars");std::process::exit(1)}
+        };
     (reset_users_table(&pool).await);
     info!("DB connection established!");
     info!("Starting Tests & Examples");
