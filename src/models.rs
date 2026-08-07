@@ -65,7 +65,17 @@ impl Tables {
 
 
 pub async fn reset_users_table(pool: &PgPool){
-    simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
+    match simple_logging::log_to_file(
+        match env::var("LOG_FILE")
+            {
+                Ok(x)=>{x},
+                Err(error)=>{error!("{error}@ finding log file! ");std::process::exit(1)},
+
+            }, LevelFilter::Info)
+                {
+                    Ok(_)=>{},
+                    Err(error)=>{error!("{error}")}
+                };
     // Drop the table if it exists
     info!("Starting reseting user table");
     

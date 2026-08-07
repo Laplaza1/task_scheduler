@@ -5,6 +5,7 @@ use axum::{
     Json,
     RequestPartsExt,
 };
+use log::error;
 
 use std::{time::{Duration, SystemTime}};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -21,7 +22,11 @@ pub struct Claims {
 }
 
 pub fn create_token(user_id: i32) -> Result<String, jsonwebtoken::errors::Error> {
-    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let secret =  match env::var("JWT_SECRET")
+                        {
+                            Ok(x)=>{x},
+                            Err(error)=>{error!("{error} @ finding JWT secret var");std::process::exit(1)}
+                        };
     let now = time::UtcDateTime::now();
     let claims = Claims {
         sub: user_id,
@@ -38,7 +43,11 @@ pub fn create_token(user_id: i32) -> Result<String, jsonwebtoken::errors::Error>
 }
 
 pub fn verify_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let secret = match env::var("JWT_SECRET")
+                        {
+                            Ok(x)=>{x},
+                            Err(error)=>{error!("{error} @ finding JWT secret var");std::process::exit(1)}
+                        };
     let mut validation = Validation::default();
     validation.set_issuer(&["task_scheduler"]);
 

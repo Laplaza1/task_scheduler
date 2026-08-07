@@ -182,7 +182,7 @@ pub async fn task_(State(pool_state): State<AppPool>,Json(payload): Json<serde_j
                                                 }
                                           },
         _ =>{
-            log::error!("due date data type was an unexpected type!");
+            log::error!("due date data type was an incorrect type!");
             return StatusCode::NOT_ACCEPTABLE.into_response()
             }
     };
@@ -236,7 +236,7 @@ pub async fn get_users(header_map:HeaderMap,State(pool_state): State<AppPool>,Js
 pub async fn login(header_map:HeaderMap,State(pool_state): State<AppPool>,Json(payload): Json<serde_json::Value>)->Response<Body>{
 
 
-    let x = get_user(
+    let x =match get_user(
         &pool_state.pool,
 match payload.get("user_id")
             {
@@ -256,7 +256,11 @@ match payload.get("user_id")
             }
             )
                 .await
-                .expect("Error getting user");
+                {
+                    Ok(x)=>{x},
+                    Err(error)=>{error!("{error}@ geting user from get_user @ login function");std::process::exit(1)}
+
+                };
 
 
             let mut new_header = HeaderMap::new();

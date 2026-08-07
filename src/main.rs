@@ -16,7 +16,7 @@ use routes::{*};
 use axum::{
     http::{HeaderValue, Method,Uri},routing::{delete, get, post, put}, Router
 };
-use core::panic;
+
 use tower_http::cors::{CorsLayer, AllowOrigin};
 use axum_limit::Quota;
 mod tests;
@@ -29,13 +29,17 @@ async fn main() {
 
 
 println!("{:?}",dotenv().ok());
-    match simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info)
-    {
-        Ok(_)=>{info!("Log successfully set up")},
-        Err(error)=>{error!("{error}")}
+   match simple_logging::log_to_file(
+        match env::var("LOG_FILE")
+            {
+                Ok(x)=>{x},
+                Err(error)=>{error!("{error}@ finding log file! ");std::process::exit(1)},
 
-
-    };
+            }, LevelFilter::Info)
+                {
+                    Ok(_)=>{},
+                    Err(error)=>{error!("{error}")}
+                };
     info!("Application Starting up ");
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,7 +127,7 @@ println!("{:?}",dotenv().ok());
      let listener = match tokio::net::TcpListener::bind("0.0.0.0:3000").await   
                             {
                                 Ok(x)=>{x},
-                                Err(error)=>{error!("{error} @ listener function please check");panic!("{error}")}
+                                Err(error)=>{error!("{error} @ listener function please check");std::process::exit(1)}
                             };
 
     axum::serve(listener, app).await.unwrap();

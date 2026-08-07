@@ -1,4 +1,4 @@
-use std::{fmt::format, net::TcpStream, panic, process::ExitCode, time::Duration};
+use std::{fmt::format, net::TcpStream, process::ExitCode, time::Duration};
 
 use axum::Error;
 use sqlx::{PgPool, Postgres};
@@ -34,7 +34,17 @@ pub async fn verify_normal_chars(x:&String)
 pub async fn postgres_init_test(pool: &PgPool)
     {
             info!("Init postgres test");
-            simple_logging::log_to_file(env::var("LOG_FILE").expect("Log file must be set in ENV"), LevelFilter::Info).unwrap();
+            match simple_logging::log_to_file(
+        match env::var("LOG_FILE")
+            {
+                Ok(x)=>{x},
+                Err(error)=>{error!("{error}@ finding log file! ");std::process::exit(1)},
+
+            }, LevelFilter::Info)
+                {
+                    Ok(_)=>{},
+                    Err(error)=>{error!("{error}")}
+                };
             //Example of Creating users
             let _create_user = match create_user(&pool, "John Doe", "john@example.com").await  
                 {
@@ -98,7 +108,7 @@ pub async fn postgres_init_test(pool: &PgPool)
 
 ///Port Checking function
 /// 
-/// Goal is to verify open ports and handle unexpected open ports
+/// Goal is to verify open ports and handle  open ports
 /// 
 pub async fn port_checker(start:u32,stop:u32)->Result<String,Error> {
 
