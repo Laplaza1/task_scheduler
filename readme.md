@@ -53,7 +53,7 @@ DATABASE_URL=postgres://username:password@localhost:####/task_scheduler
 LOG_FILE=app.log
 JWT_SECRET=Super-Secret-key  # for future JWT work
 HOST=127.0.0.1                                              #will be used by port checker
-
+InDevelopment = "True"|"False"
 
 
 # Clone the repository
